@@ -1,0 +1,5 @@
+# Variables d'environnement : contient la clé API, ne doit jamais être committé.
+.env
+
+# Cache Python généré à l'exécution.
+__pycache__/
