@@ -22,12 +22,23 @@
   <button onclick="refuser()">Non, continue</button>
 </div>
 
+<!-- Bouton affiché pendant toute la partie : permet de déclarer forfait pour
+     le modèle et d'enregistrer la partie comme perdue. -->
+<div id="abandon" hidden>
+  <button onclick="abandonner()">J'abandonne, il ne trouvera pas</button>
+</div>
+
 <!-- Bouton de départ (et de relance après une partie). -->
 <div id="depart">
   <button onclick="nouvellePartie()">Commencer</button>
 </div>
 
 <pre id="journal"></pre>
+
+<!-- Historique des parties précédentes, rempli depuis la base de données. -->
+<h2>Historique des devinettes</h2>
+<button onclick="effacerHistorique()">Effacer l'historique</button>
+<ul id="historique"></ul>
 
 <script>
 // État de la partie.
@@ -40,13 +51,16 @@ const scene = document.getElementById("scene");
 const boutonsReponse = document.getElementById("reponses");
 const boutonsDevinette = document.getElementById("devinette");
 const boutonDepart = document.getElementById("depart");
+const boutonAbandon = document.getElementById("abandon");
 const journal = document.getElementById("journal");
+const listeHistorique = document.getElementById("historique");
 
-// Cache les trois groupes de boutons.
+// Cache tous les groupes de boutons.
 function cacherBoutons() {
   boutonsReponse.hidden = true;
   boutonsDevinette.hidden = true;
   boutonDepart.hidden = true;
+  boutonAbandon.hidden = true;
 }
 
 // Démarre (ou relance) une partie.
@@ -82,6 +96,25 @@ async function tourSuivant() {
     scene.textContent = "Question : " + donnees.texte;
     boutonsReponse.hidden = false;
   }
+  // L'abandon reste possible à tout moment de la partie.
+  boutonAbandon.hidden = false;
+}
+
+// Nombre de coups joués : chaque entrée d'historique correspond à un coup
+// déjà répondu, plus le coup actuellement affiché à l'écran.
+function nombreDeCoups() {
+  return historique.length + 1;
+}
+
+// Envoie la partie terminée au serveur, qui l'enregistre en base, puis
+// rafraîchit la liste affichée en bas de page.
+async function enregistrerPartie(trouve, reponse) {
+  await fetch("/api/partie", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ trouve, reponse, coups: nombreDeCoups() }),
+  });
+  await chargerHistorique();
 }
 
 // L'utilisateur répond à une question, puis on enchaîne le tour suivant.
@@ -90,11 +123,23 @@ function repondre(reponse) {
   tourSuivant();
 }
 
-// Devinette acceptée : la partie est gagnée.
+// Devinette acceptée : la partie est gagnée, on l'enregistre.
 function gagne() {
   cacherBoutons();
   scene.textContent = "Gagné !";
   boutonDepart.hidden = false;
+  enregistrerPartie(true, devinetteEnCours);
+}
+
+// L'utilisateur déclare que le modèle ne trouvera pas : on lui demande la
+// réponse pour pouvoir l'enregistrer, puis la partie est perdue.
+function abandonner() {
+  const reponse = prompt("À quoi pensais-tu ?");
+  if (!reponse) return; // annulé ou vide : on ne fait rien, la partie continue
+  cacherBoutons();
+  scene.textContent = "Perdu ! C'était : " + reponse;
+  boutonDepart.hidden = false;
+  enregistrerPartie(false, reponse);
 }
 
 // Devinette refusée : on le signale au modèle et on continue à jouer.
@@ -105,4 +150,37 @@ function refuser() {
   });
   tourSuivant();
 }
+
+// Récupère l'historique en base et l'affiche sous forme de liste.
+async function chargerHistorique() {
+  const r = await fetch("/api/historique");
+  const parties = await r.json();
+
+  listeHistorique.textContent = ""; // on repart d'une liste vide
+
+  if (parties.length === 0) {
+    listeHistorique.textContent = "Pas encore de devinettes";
+    return;
+  }
+
+  for (const partie of parties) {
+    const ligne = document.createElement("li");
+    // textContent (et non innerHTML) : la réponse vient de l'utilisateur ou
+    // du modèle, on l'affiche donc comme du texte brut, jamais comme du HTML.
+    ligne.textContent =
+      partie.date + " — " +
+      (partie.trouve ? "trouvé" : "non trouvé") + " : " +
+      partie.reponse + " (" + partie.coups + " coups)";
+    listeHistorique.appendChild(ligne);
+  }
+}
+
+// Vide la table côté serveur, puis rafraîchit l'affichage.
+async function effacerHistorique() {
+  await fetch("/api/historique", { method: "DELETE" });
+  await chargerHistorique();
+}
+
+// Au chargement de la page, on affiche l'historique existant.
+chargerHistorique();
 </script>

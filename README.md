@@ -7,6 +7,9 @@ Un Akinator minimaliste qui exploite un LLM. Tu penses à quelque chose (personn
 - Backend Flask ([app.py](app.py)) qui relaie les tours de jeu vers [OpenRouter](https://openrouter.ai/).
 - Frontend HTML/JS unique ([index.html](index.html)), sans CSS, avec 5 réponses possibles : *Oui, Non, Souvent, Parfois, Je ne sais pas*.
 - Le prompt système impose une stratégie de **dichotomie** sur les candidats restants (pas de simple énumération).
+- Les parties terminées sont enregistrées dans une base **SQLite** (`parties.db`, créée automatiquement au premier lancement) et listées en bas de page : date, succès ou échec, réponse et nombre de coups. Un bouton permet d'effacer cet historique.
+
+Une partie se termine de deux façons : le modèle devine juste (« Oui, gagné »), ou l'utilisateur déclare forfait pour lui (« J'abandonne ») et saisit alors la réponse à laquelle il pensait.
 
 ## Lancer
 

@@ -3,3 +3,9 @@
 
 # Cache Python généré à l'exécution.
 __pycache__/
+
+# MacOS
+.DS_Store
+
+# Fichiers du projet
+parties.db

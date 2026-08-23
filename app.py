@@ -5,6 +5,8 @@
 # Métadonnées PEP 723 : `uv run app.py` installe les dépendances dans un
 # environnement isolé, sans requirements.txt ni venv à gérer.
 import os
+import sqlite3
+from datetime import datetime
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, send_file
 from openrouter import OpenRouter
@@ -48,6 +50,44 @@ RÈGLES DE FORME :
 app = Flask(__name__)
 
 
+# ---------------------------------------------------------------------------
+# Base de données : historique des parties terminées.
+# sqlite3 fait partie de la bibliothèque standard, il n'y a donc rien à
+# installer en plus. Toute la base tient dans un seul fichier, parties.db.
+# ---------------------------------------------------------------------------
+BASE = "parties.db"
+
+
+def connexion():
+    """Ouvre une connexion à la base.
+
+    On en ouvre une neuve à chaque usage plutôt que d'en partager une seule :
+    c'est plus simple, et ça évite les problèmes de connexion SQLite utilisée
+    depuis plusieurs threads (Flask traite les requêtes en parallèle).
+    """
+    co = sqlite3.connect(BASE)
+    co.row_factory = sqlite3.Row  # permet de lire les colonnes par leur nom
+    return co
+
+
+# Crée la table au démarrage si elle n'existe pas encore (premier lancement).
+# Une ligne = une partie terminée.
+#   date    : date lisible, déjà formatée pour l'affichage
+#   trouve  : 1 si le modèle a deviné, 0 si l'utilisateur a abandonné
+#   reponse : ce à quoi l'utilisateur pensait
+#   coups   : nombre de questions/devinettes posées par le modèle
+co = connexion()
+co.execute("""CREATE TABLE IF NOT EXISTS parties (
+    id      INTEGER PRIMARY KEY,
+    date    TEXT    NOT NULL,
+    trouve  INTEGER NOT NULL,
+    reponse TEXT    NOT NULL,
+    coups   INTEGER NOT NULL
+)""")
+co.commit()
+co.close()
+
+
 # Page d'accueil : sert le fichier index.html tel quel.
 @app.get("/")
 def accueil():
@@ -84,6 +124,49 @@ def tour():
         return jsonify(type="question", texte=texte[9:].strip())
     # Filet de sécurité : si le format n'est pas respecté, on traite comme une question.
     return jsonify(type="question", texte=texte)
+
+
+# Enregistre une partie qui vient de se terminer (gagnée ou abandonnée).
+@app.post("/api/partie")
+def enregistrer_partie():
+    donnees = request.get_json()
+    co = connexion()
+    co.execute(
+        "INSERT INTO parties (date, trouve, reponse, coups) VALUES (?, ?, ?, ?)",
+        (
+            # Date formatée ici une fois pour toutes : le frontend n'a plus
+            # qu'à l'afficher telle quelle, sans conversion.
+            datetime.now().strftime("%d/%m/%Y à %H:%M"),
+            1 if donnees["trouve"] else 0,  # SQLite n'a pas de type booléen
+            donnees["reponse"],
+            donnees["coups"],
+        ),
+    )
+    co.commit()
+    co.close()
+    return jsonify(ok=True)
+
+
+# Renvoie toutes les parties enregistrées, la plus récente en premier.
+@app.get("/api/historique")
+def lire_historique():
+    co = connexion()
+    lignes = co.execute(
+        "SELECT date, trouve, reponse, coups FROM parties ORDER BY id DESC"
+    ).fetchall()
+    co.close()
+    # sqlite3.Row n'est pas convertible en JSON : on repasse par des dict.
+    return jsonify([dict(ligne) for ligne in lignes])
+
+
+# Vide l'historique (bouton « Effacer l'historique »).
+@app.delete("/api/historique")
+def effacer_historique():
+    co = connexion()
+    co.execute("DELETE FROM parties")
+    co.commit()
+    co.close()
+    return jsonify(ok=True)
 
 
 # Port 5001 : rarement déjà utilisé.
