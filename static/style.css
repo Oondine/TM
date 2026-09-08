@@ -1,0 +1,232 @@
+/* Feuille de style d'Akinator-LLM.
+   Une seule colonne centrée, deux polices, une poignée de couleurs. */
+
+/* Palette et polices, définies une fois pour tout le document. */
+:root {
+  --fond:   #fff5c2;  /* papier chaud, fond de page */
+  --carte:  #ffffff;  /* fond de la carte qui porte la question */
+  --trait:  #000066;  /* filets et bordures */
+  --encre:  #1b1a17;  /* texte principal */
+  --encre-clair: #35322c; /* survol des boutons principaux */
+  --doux:   #6f6a62;  /* texte secondaire (dates, étiquettes) */
+  --succes: #2f6b4f;  /* partie trouvée */
+  --echec:  #9a4a3c;  /* partie non trouvée */
+
+  /* Les polices sont chargées depuis Google Fonts dans index.html. Les polices
+     de repli comptent : le serveur tourne en local, la page doit rester lisible
+     même sans accès à Internet. */
+  --serif: "Playfair Display", Georgia, "Times New Roman", serif;
+  --sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+/* Le JavaScript montre et cache les groupes de boutons avec l'attribut `hidden`.
+   Or une règle comme `display: flex` écraserait ce `hidden` et afficherait tous
+   les boutons en même temps. Cette règle garantit que `hidden` gagne toujours. */
+[hidden] { display: none !important; }
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--fond);
+  color: var(--encre);
+  font-family: var(--sans);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+/* Colonne unique, centrée, de largeur confortable à la lecture. */
+main {
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 3rem 1.25rem 4rem;
+}
+
+/* --- En-tête ------------------------------------------------------------- */
+
+header { margin-bottom: 2rem; }
+
+header h1 {
+  margin: 0 0 .25rem;
+  font-family: var(--serif);
+  font-size: 2.5rem;
+  font-weight: 400;
+  letter-spacing: -.01em;
+}
+
+header p {
+  margin: 0;
+  color: var(--doux);
+  font-size: .95rem;
+}
+
+/* --- Carte de jeu : l'étiquette et la question du modèle ----------------- */
+
+.carte {
+  background: var(--carte);
+  border: 1px solid var(--trait);
+  border-radius: 12px;
+  padding: 1.75rem;
+  box-shadow: 0 1px 2px rgba(27, 26, 23, .04);
+}
+
+/* Les petites étiquettes en majuscules sont mises en graisse 500 : à cette
+   taille, le 400 est trop pâle pour rester lisible. */
+#etiquette, #technique .titre, .badge {
+  font-weight: 500;
+  font-size: .7rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+#etiquette {
+  margin: 0 0 .5rem;
+  color: var(--doux);
+}
+
+/* La question est l'élément central de la page : serif, grande taille.
+   `clamp` la fait rétrécir toute seule sur les écrans étroits. */
+#scene {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(1.4rem, 4vw, 1.9rem);
+  line-height: 1.25;
+}
+
+/* --- Boutons ------------------------------------------------------------- */
+
+/* Un groupe = une rangée de boutons qui passe à la ligne si la place manque. */
+.groupe {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin-top: 1rem;
+}
+
+button {
+  background: var(--carte);
+  color: var(--encre);
+  border: 1px solid var(--trait);
+  border-radius: 8px;
+  padding: .55rem 1.1rem;
+  font-family: var(--sans);
+  font-size: .95rem;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+
+button:hover {
+  background: var(--fond);
+  border-color: var(--encre);
+}
+
+/* Contour visible pour qui navigue au clavier. */
+button:focus-visible {
+  outline: 2px solid var(--encre);
+  outline-offset: 2px;
+}
+
+/* Action principale : « Commencer », « Oui, gagné ». */
+.principal {
+  background: var(--encre);
+  border-color: var(--encre);
+  color: var(--carte);
+}
+
+.principal:hover {
+  background: var(--encre-clair);
+  border-color: var(--encre-clair);
+}
+
+/* Action de retrait : « J'abandonne », « Effacer l'historique ». */
+.discret {
+  background: none;
+  border-color: transparent;
+  color: var(--doux);
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.discret:hover {
+  background: none;
+  border-color: transparent;
+  color: var(--encre);
+  text-decoration: underline;
+}
+
+/* --- Bloc technique : la réponse brute du serveur ------------------------ */
+
+#technique { margin-top: 2.5rem; }
+
+/* Tant que le journal est vide (avant la première partie), on n'affiche rien. */
+#technique:has(#journal:empty) { display: none; }
+
+#technique .titre {
+  margin: 0 0 .4rem;
+  color: var(--doux);
+}
+
+#journal {
+  margin: 0;
+  background: var(--fond);
+  border: 1px solid var(--trait);
+  border-radius: 8px;
+  padding: .75rem;
+  color: var(--doux);
+  font-size: .72rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  max-height: 14rem;
+  overflow: auto;
+}
+
+/* --- Historique des parties ---------------------------------------------- */
+
+.historique {
+  margin-top: 3rem;
+  border-top: 1px solid var(--trait);
+  padding-top: 1.5rem;
+}
+
+.historique h2 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 1.4rem;
+  font-weight: 400;
+}
+
+#historique {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+}
+
+#historique li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .6rem;
+  padding: .7rem 0;
+  border-top: 1px solid var(--trait);
+}
+
+#historique li:first-child { border-top: none; }
+
+/* Pastille « trouvé » / « non trouvé » en tête de ligne. */
+.badge.trouve { color: var(--succes); }
+.badge.perdu  { color: var(--echec); }
+
+/* La réponse occupe la place restante, la date et les coups sont repoussés
+   à droite. */
+.reponse { flex: 1; }
+
+.date, .coups {
+  color: var(--doux);
+  font-size: .8rem;
+}
+
+/* Liste vide : un simple message, sans filet. */
+#historique .vide {
+  border-top: none;
+  color: var(--doux);
+}

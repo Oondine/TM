@@ -1,186 +1,76 @@
 <!doctype html>
-<meta charset="utf-8">
-<title>Akinator-LLM</title>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Akinator-LLM</title>
 
-<h1>Akinator-LLM</h1>
-<p>Pense à quelque chose, puis réponds aux questions.</p>
+  <!-- Deux polices : un serif pour les titres et la question, un sans-serif
+       pour l'interface. Flask sert le dossier static/ tout seul. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display&family=Inter:wght@400;500&display=swap">
+  <link rel="stylesheet" href="/static/style.css">
 
-<p id="scene">…</p>
+  <!-- defer : le script s'exécute une fois la page construite. -->
+  <script src="/static/jeu.js" defer></script>
+</head>
+<body>
+<main>
 
-<!-- Boutons de réponse à une question : ils sont toujours les mêmes. -->
-<div id="reponses" hidden>
-  <button onclick="repondre('Oui')">Oui</button>
-  <button onclick="repondre('Non')">Non</button>
-  <button onclick="repondre('Souvent')">Souvent</button>
-  <button onclick="repondre('Parfois')">Parfois</button>
-  <button onclick="repondre('Je ne sais pas')">Je ne sais pas</button>
-</div>
+  <header>
+    <h1>Akinator-LLM</h1>
+    <p>Pense à quelque chose, puis réponds aux questions.</p>
+  </header>
 
-<!-- Boutons affichés quand le modèle propose une devinette. -->
-<div id="devinette" hidden>
-  <button onclick="gagne()">Oui, gagné</button>
-  <button onclick="refuser()">Non, continue</button>
-</div>
+  <!-- Carte centrale : l'étiquette du tour et le texte du modèle. -->
+  <section class="carte">
+    <p id="etiquette"></p>
+    <p id="scene">…</p>
+  </section>
 
-<!-- Bouton affiché pendant toute la partie : permet de déclarer forfait pour
-     le modèle et d'enregistrer la partie comme perdue. -->
-<div id="abandon" hidden>
-  <button onclick="abandonner()">J'abandonne, il ne trouvera pas</button>
-</div>
+  <!-- Boutons de réponse à une question : ils sont toujours les mêmes. -->
+  <div id="reponses" class="groupe" hidden>
+    <button onclick="repondre('Oui')">Oui</button>
+    <button onclick="repondre('Non')">Non</button>
+    <button onclick="repondre('Souvent')">Souvent</button>
+    <button onclick="repondre('Parfois')">Parfois</button>
+    <button onclick="repondre('Je ne sais pas')">Je ne sais pas</button>
+  </div>
 
-<!-- Bouton de départ (et de relance après une partie). -->
-<div id="depart">
-  <button onclick="nouvellePartie()">Commencer</button>
-</div>
+  <!-- Boutons affichés quand le modèle propose une devinette. -->
+  <div id="devinette" class="groupe" hidden>
+    <button class="principal" onclick="gagne()">Oui, gagné</button>
+    <button onclick="refuser()">Non, continue</button>
+  </div>
 
-<pre id="journal"></pre>
+  <!-- Bouton affiché pendant toute la partie : permet de déclarer forfait pour
+       le modèle et d'enregistrer la partie comme perdue. -->
+  <div id="abandon" class="groupe" hidden>
+    <button class="discret" onclick="abandonner()">J'abandonne, il ne trouvera pas</button>
+  </div>
 
-<!-- Historique des parties précédentes, rempli depuis la base de données. -->
-<h2>Historique des devinettes</h2>
-<button onclick="effacerHistorique()">Effacer l'historique</button>
-<ul id="historique"></ul>
+  <!-- Bouton de départ (et de relance après une partie). -->
+  <div id="depart" class="groupe">
+    <button class="principal" onclick="nouvellePartie()">Commencer</button>
+  </div>
 
-<script>
-// État de la partie.
-let historique = [];        // toutes les questions posées et leurs réponses
-let questionEnCours = null; // la question actuellement affichée
-let devinetteEnCours = null; // la devinette actuellement affichée
+  <!-- Réponse brute du serveur, pour suivre le déroulé du jeu. Le bloc reste
+       masqué tant que le journal est vide (voir style.css). -->
+  <section id="technique">
+    <p class="titre">Réponse du serveur</p>
+    <pre id="journal"></pre>
+  </section>
 
-// Raccourcis vers les éléments de la page.
-const scene = document.getElementById("scene");
-const boutonsReponse = document.getElementById("reponses");
-const boutonsDevinette = document.getElementById("devinette");
-const boutonDepart = document.getElementById("depart");
-const boutonAbandon = document.getElementById("abandon");
-const journal = document.getElementById("journal");
-const listeHistorique = document.getElementById("historique");
+  <!-- Historique des parties précédentes, rempli depuis la base de données. -->
+  <section class="historique">
+    <h2>Historique des devinettes</h2>
+    <ul id="historique"></ul>
+    <div class="groupe">
+      <button class="discret" onclick="effacerHistorique()">Effacer l'historique</button>
+    </div>
+  </section>
 
-// Cache tous les groupes de boutons.
-function cacherBoutons() {
-  boutonsReponse.hidden = true;
-  boutonsDevinette.hidden = true;
-  boutonDepart.hidden = true;
-  boutonAbandon.hidden = true;
-}
-
-// Démarre (ou relance) une partie.
-function nouvellePartie() {
-  historique = [];
-  tourSuivant();
-}
-
-// Joue un tour : envoie l'historique au serveur et affiche sa réponse.
-async function tourSuivant() {
-  cacherBoutons();
-  scene.textContent = "Je réfléchis…";
-
-  const r = await fetch("/api/tour", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ historique }),
-  });
-  const donnees = await r.json();
-
-  // Affiche la réponse brute du serveur, pour suivre le déroulé du jeu.
-  journal.textContent = "Réponse du serveur : " + JSON.stringify(donnees, null, 2) + "\n\n"
-                      + "Historique : " + JSON.stringify(historique, null, 2);
-
-  if (donnees.type === "devinette") {
-    // Le modèle propose une réponse : boutons « gagné » / « continue ».
-    devinetteEnCours = donnees.texte;
-    scene.textContent = "Devinette : " + donnees.texte + " ?";
-    boutonsDevinette.hidden = false;
-  } else {
-    // Le modèle pose une question : on montre les 5 boutons de réponse.
-    questionEnCours = donnees.texte;
-    scene.textContent = "Question : " + donnees.texte;
-    boutonsReponse.hidden = false;
-  }
-  // L'abandon reste possible à tout moment de la partie.
-  boutonAbandon.hidden = false;
-}
-
-// Nombre de coups joués : chaque entrée d'historique correspond à un coup
-// déjà répondu, plus le coup actuellement affiché à l'écran.
-function nombreDeCoups() {
-  return historique.length + 1;
-}
-
-// Envoie la partie terminée au serveur, qui l'enregistre en base, puis
-// rafraîchit la liste affichée en bas de page.
-async function enregistrerPartie(trouve, reponse) {
-  await fetch("/api/partie", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ trouve, reponse, coups: nombreDeCoups() }),
-  });
-  await chargerHistorique();
-}
-
-// L'utilisateur répond à une question, puis on enchaîne le tour suivant.
-function repondre(reponse) {
-  historique.push({ question: questionEnCours, reponse: reponse });
-  tourSuivant();
-}
-
-// Devinette acceptée : la partie est gagnée, on l'enregistre.
-function gagne() {
-  cacherBoutons();
-  scene.textContent = "Gagné !";
-  boutonDepart.hidden = false;
-  enregistrerPartie(true, devinetteEnCours);
-}
-
-// L'utilisateur déclare que le modèle ne trouvera pas : on lui demande la
-// réponse pour pouvoir l'enregistrer, puis la partie est perdue.
-function abandonner() {
-  const reponse = prompt("À quoi pensais-tu ?");
-  if (!reponse) return; // annulé ou vide : on ne fait rien, la partie continue
-  cacherBoutons();
-  scene.textContent = "Perdu ! C'était : " + reponse;
-  boutonDepart.hidden = false;
-  enregistrerPartie(false, reponse);
-}
-
-// Devinette refusée : on le signale au modèle et on continue à jouer.
-function refuser() {
-  historique.push({
-    question: "Ma devinette : " + devinetteEnCours,
-    reponse: 'Non, ce n\'est pas "' + devinetteEnCours + '". Reprends une question discriminante.',
-  });
-  tourSuivant();
-}
-
-// Récupère l'historique en base et l'affiche sous forme de liste.
-async function chargerHistorique() {
-  const r = await fetch("/api/historique");
-  const parties = await r.json();
-
-  listeHistorique.textContent = ""; // on repart d'une liste vide
-
-  if (parties.length === 0) {
-    listeHistorique.textContent = "Pas encore de devinettes";
-    return;
-  }
-
-  for (const partie of parties) {
-    const ligne = document.createElement("li");
-    // textContent (et non innerHTML) : la réponse vient de l'utilisateur ou
-    // du modèle, on l'affiche donc comme du texte brut, jamais comme du HTML.
-    ligne.textContent =
-      partie.date + " — " +
-      (partie.trouve ? "trouvé" : "non trouvé") + " : " +
-      partie.reponse + " (" + partie.coups + " coups)";
-    listeHistorique.appendChild(ligne);
-  }
-}
-
-// Vide la table côté serveur, puis rafraîchit l'affichage.
-async function effacerHistorique() {
-  await fetch("/api/historique", { method: "DELETE" });
-  await chargerHistorique();
-}
-
-// Au chargement de la page, on affiche l'historique existant.
-chargerHistorique();
-</script>
+</main>
+</body>
+</html>

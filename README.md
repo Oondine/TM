@@ -5,7 +5,7 @@ Un Akinator minimaliste qui exploite un LLM. Tu penses à quelque chose (personn
 ## Fonctionnement
 
 - Backend Flask ([app.py](app.py)) qui relaie les tours de jeu vers [OpenRouter](https://openrouter.ai/).
-- Frontend HTML/JS unique ([index.html](index.html)), sans CSS, avec 5 réponses possibles : *Oui, Non, Souvent, Parfois, Je ne sais pas*.
+- Frontend en trois fichiers — structure ([index.html](index.html)), style ([static/style.css](static/style.css)) et logique de jeu ([static/jeu.js](static/jeu.js)) — avec 5 réponses possibles : *Oui, Non, Souvent, Parfois, Je ne sais pas*. Flask sert le dossier `static/` automatiquement, sans configuration.
 - Le prompt système impose une stratégie de **dichotomie** sur les candidats restants (pas de simple énumération).
 - Les parties terminées sont enregistrées dans une base **SQLite** (`parties.db`, créée automatiquement au premier lancement) et listées en bas de page : date, succès ou échec, réponse et nombre de coups. Un bouton permet d'effacer cet historique.
 
