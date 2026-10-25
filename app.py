@@ -18,7 +18,7 @@ load_dotenv()
 client = OpenRouter(api_key=os.environ["OPENROUTER_API_KEY"])
 
 # Choix du modèle.
-MODELE = "z-ai/glm-5.2:nitro"   #"deepseek/deepseek-v4-flash:nitro" nitro choisi le provider le plus rapide
+MODELE = "deepseek/deepseek-v4.1-flash-1017"   #"deepseek/deepseek-v4-flash:nitro" nitro choisi le provider le plus rapide
 
 # Le prompt système est le moteur du jeu : toute la logique est ici, pas dans le code Python.
 PROMPT_SYSTEME = """L'utilisateur pense à quelque chose (personnage réel ou fictif, objet, animal, lieu, concept).
@@ -117,6 +117,7 @@ def tour():
 
     # Le modèle répond sur une seule ligne, préfixée par « QUESTION: » ou
     # « DEVINETTE: » (imposé par le prompt système). On renvoie ça en JSON.
+    # L'API renvoie toujours la réponse dans choices[0] et on prend le contenu de la réponse nettoyé avec strip()
     texte = reponse.choices[0].message.content.strip()
     if texte.upper().startswith("DEVINETTE:"):
         return jsonify(type="devinette", texte=texte[10:].strip())
@@ -169,5 +170,5 @@ def effacer_historique():
     return jsonify(ok=True)
 
 
-# Port 5001 : rarement déjà utilisé.
+# On utilise le port 5001, car c'est le plus utilisé sur Mac.
 app.run(port=5001, debug=True)
