@@ -18,7 +18,7 @@ load_dotenv()
 client = OpenRouter(api_key=os.environ["OPENROUTER_API_KEY"])
 
 # Choix du modèle.
-MODELE = "deepseek/deepseek-v4.1-flash-1017"   #"deepseek/deepseek-v4-flash:nitro" nitro choisi le provider le plus rapide
+MODELE = "deepseek/deepseek-v4.1-flash-1017:nitro"   #"deepseek/deepseek-v4-flash:nitro" nitro choisi le provider le plus rapide
 
 # Le prompt système est le moteur du jeu : toute la logique est ici, pas dans le code Python.
 PROMPT_SYSTEME = """L'utilisateur pense à quelque chose (personnage réel ou fictif, objet, animal, lieu, concept).
